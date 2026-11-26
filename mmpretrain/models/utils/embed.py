@@ -106,10 +106,12 @@ def resize_relative_position_bias_table(src_shape, dst_shape, table, num_head):
 
     for i in range(num_head):
         z = table[:, i].view(src_shape, src_shape).float().numpy()
-        f_cubic = interpolate.interp2d(x, y, z, kind='cubic')
+        # interp2d was removed in SciPy 1.14; on a regular grid this is
+        # the equivalent call (rows are y, columns are x).
+        f_cubic = interpolate.RectBivariateSpline(y, x, z, kx=3, ky=3, s=0)
         all_rel_pos_bias.append(
-            torch.Tensor(f_cubic(dx,
-                                 dy)).contiguous().view(-1,
+            torch.Tensor(f_cubic(dy,
+                                 dx)).contiguous().view(-1,
                                                         1).to(table.device))
     new_rel_pos_bias = torch.cat(all_rel_pos_bias, dim=-1)
     return new_rel_pos_bias
